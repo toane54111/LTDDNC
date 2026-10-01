@@ -1,0 +1,6 @@
+name: rental_domain
+description: Shared rental metadata and business rules.
+version: 1.0.0
+publish_to: none
+environment:
+  sdk: ^3.10.0
