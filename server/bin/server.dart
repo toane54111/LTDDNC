@@ -9,6 +9,8 @@ import 'package:shelf/shelf_io.dart' as io;
 import 'package:rental_server/database.dart';
 import 'package:rental_server/service.dart';
 import 'package:rental_server/config.dart';
+import 'package:rental_server/firebase_gateway.dart';
+import 'package:rental_server/firebase_routes.dart';
 
 final sessions = <String, ({String uid, DateTime expires})>{};
 String digest(String token) => sha256.convert(utf8.encode(token)).toString();
@@ -47,6 +49,27 @@ Future<Response> handle(Request request) async {
         ? await body(request)
         : <String, dynamic>{};
     db = await Database.open();
+    if (parts.join('/') == 'api/google-login' && request.method == 'POST') {
+      final identity = await FirebaseGateway.instance.googleIdentity(
+        '${data['idToken'] ?? ''}',
+      );
+      final links = await db.query(
+        'SELECT user_id FROM firebase_google_links WHERE google_uid=:uid',
+        {'uid': identity['localId']},
+      );
+      require(
+        links.isNotEmpty,
+        'Đăng nhập bằng mật khẩu rồi liên kết Google trong Tài khoản trước.',
+        403,
+      );
+      final account = await db.row('nguoi_dung', links.first['user_id']);
+      require(
+        account['trang_thai'] == 'HOAT_DONG',
+        'Tài khoản đã bị khóa',
+        403,
+      );
+      return jsonResponse(createSession(account));
+    }
     if (parts.join('/') == 'api/login' && request.method == 'POST') {
       final email = '${data['email'] ?? ''}'.trim().toLowerCase();
       final rows = await db.query(
@@ -99,6 +122,14 @@ Future<Response> handle(Request request) async {
     );
     final user = await db.row('nguoi_dung', session!.uid);
     require(user['trang_thai'] == 'HOAT_DONG', 'Tài khoản đã bị khóa', 403);
+    if (parts.length >= 3 && parts[1] == 'firebase') {
+      return jsonResponse(
+        await FirebaseRoutes(
+          db,
+          user,
+        ).handle(parts.skip(2).join('/'), request.method, data),
+      );
+    }
     if (parts.join('/') == 'api/logout') {
       sessions.remove(key);
       return jsonResponse({'ok': true});
@@ -244,6 +275,25 @@ Future<Response> handle(Request request) async {
   } finally {
     await db?.close();
   }
+}
+
+Record createSession(Record user) {
+  sessions.removeWhere((_, s) => s.expires.isBefore(DateTime.now()));
+  final random = Random.secure();
+  final token = base64UrlEncode(
+    List<int>.generate(32, (_) => random.nextInt(256)),
+  );
+  sessions[digest(token)] = (
+    uid: '${user['user_id']}',
+    expires: DateTime.now().add(const Duration(hours: 12)),
+  );
+  user.remove('mat_khau');
+  user.remove('so_lan_sai_mat_khau');
+  return {
+    'token': token,
+    'user': user,
+    'onlineDemo': config['ENABLE_ONLINE_DEMO'] == 'true',
+  };
 }
 
 Future<void> main() async {

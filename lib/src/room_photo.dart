@@ -21,6 +21,12 @@ class RoomPhoto extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => placeholder(),
               )
+            : '${row['photo_url'] ?? ''}'.startsWith('https://')
+            ? Image.network(
+                row['photo_url'],
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => placeholder(),
+              )
             : placeholder(),
       ),
     );

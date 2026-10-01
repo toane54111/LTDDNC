@@ -4,6 +4,12 @@
 
 Được chuyển từ project của nhóm: https://github.com/toane54111/QuanLyPhongTro_DesignPattern.
 
+**Hướng dẫn chạy từ đầu:** [docs/RUNNING.md](docs/RUNNING.md) — máy hiện tại, cài mới, Firebase, Android/Web và xử lý lỗi thường gặp.
+
+## Firebase
+
+Đã tích hợp Google Sign-In, chat Firestore, ảnh Storage, thông báo FCM và Crashlytics, kết nối project Firebase `ltddnc-ac280` trên máy hiện tại. Khi chuyển sang máy khác, cần cấu hình khóa backend theo [docs/FIREBASE.md](docs/FIREBASE.md). MySQL vẫn lưu nghiệp vụ và sqflite lưu bản nháp điện nước.
+
 ## Chạy ngay trên máy hiện tại
 
 - APK debug: `build/app/outputs/flutter-apk/app-debug.apk`.
@@ -13,7 +19,7 @@
 - Tài khoản chủ trọ: xem `ADMIN_EMAIL` và `ADMIN_PASSWORD` trong `.env`. Mật khẩu được tạo ngẫu nhiên, không đưa vào Git.
 - MySQL sẵn có trên cổng 3306 không bị thay đổi.
 
-Nếu đã tắt các tiến trình, mở ba terminal từ thư mục project:
+Nếu đã tắt các tiến trình, mở các terminal từ thư mục project:
 
 ```powershell
 # Terminal 1: khởi động instance MySQL riêng đã khởi tạo trên máy này
@@ -24,6 +30,9 @@ Nếu đã tắt các tiến trình, mở ba terminal từ thư mục project:
 
 # Terminal 3: giao diện web đã build (giữ terminal này mở)
 ./scripts/start-preview.ps1
+
+# Terminal 4: gửi thông báo và nhắc hạn hóa đơn (giữ terminal này mở)
+./scripts/start-firebase-worker.ps1
 ```
 
 Chế độ **Xem vai trò chủ trọ / Xem khách thuê** trên màn hình đăng nhập chỉ dùng dữ liệu mẫu. Thêm/sửa dữ liệu cần đăng nhập vào API thật.

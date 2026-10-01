@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:rental_domain/rental_domain.dart';
 import 'database.dart';
+import 'firebase_gateway.dart';
 
 class RentalService {
   RentalService(this.db, this.user);
@@ -54,6 +55,13 @@ class RentalService {
     for (final row in rows) {
       row.remove('mat_khau');
       row.remove('so_lan_sai_mat_khau');
+      if (table == 'phong_tro' && FirebaseGateway.instance.enabled) {
+        final photos = await db.query(
+          'SELECT photo_url FROM firebase_room_photos WHERE room_id=:id',
+          {'id': row['phong_id']},
+        );
+        if (photos.isNotEmpty) row['photo_url'] = photos.first['photo_url'];
+      }
       if (table == 'hoa_don') {
         row['da_thanh_toan'] = await paid(row['hoa_don_id']);
         row['con_no'] = max(
@@ -74,11 +82,17 @@ class RentalService {
     throw ApiError(404, 'Không tìm thấy dữ liệu thuộc tài khoản này');
   }
 
-  Future<void> notify(dynamic recipient, String title, String body) => db
+  Future<void> notify(
+    dynamic recipient,
+    String title,
+    String body, {
+    String? link,
+  }) => db
       .insert('thong_bao', {
         'nguoi_nhan_id': recipient,
         'tieu_de': title,
         'noi_dung': body,
+        'link': ?link,
       })
       .then((_) {});
   Future<void> notifyOwners(String title, String body) async {
@@ -419,6 +433,7 @@ class RentalService {
       contract['khach_thue_id'],
       'Hóa đơn mới',
       'Kỳ ${data['ky_thanh_toan']}: ${values['tong_tien']} đ.',
+      link: 'hoa_don/$id',
     );
     return db.row('hoa_don', id);
   }

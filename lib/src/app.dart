@@ -6,6 +6,8 @@ import 'detail.dart';
 import 'forms.dart';
 import 'theme.dart';
 import 'room_photo.dart';
+import 'chat.dart';
+import 'firebase_settings.dart';
 
 class RentalApp extends StatefulWidget {
   const RentalApp({super.key, this.store});
@@ -86,6 +88,20 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await widget.store.login(email.text.trim(), password.text);
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> googleLogin() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.store.googleLogin();
     } catch (e) {
       if (mounted) setState(() => error = '$e');
     } finally {
@@ -209,6 +225,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: busy ? null : googleLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('Đăng nhập bằng Google'),
+              ),
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: () async {
@@ -286,6 +308,37 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     reload();
+    s.notificationTap.addListener(openPush);
+    s.foregroundNotification.addListener(showPush);
+    WidgetsBinding.instance.addPostFrameCallback((_) => openPush());
+  }
+
+  void openPush() {
+    if (!mounted || s.notificationTap.value == null) return;
+    s.notificationTap.value = null;
+    open('thong_bao');
+  }
+
+  void showPush() {
+    final title = s.foregroundNotification.value;
+    if (mounted && title != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(title),
+          action: SnackBarAction(
+            label: 'Xem',
+            onPressed: () => open('thong_bao'),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    s.notificationTap.removeListener(openPush);
+    s.foregroundNotification.removeListener(showPush);
+    super.dispose();
   }
 
   Future<void> reload() async {
@@ -663,6 +716,18 @@ class _HomeScreenState extends State<HomeScreen> {
         style: const TextStyle(color: Colors.black54),
       ),
       const SizedBox(height: 24),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.chat_bubble_outline, color: brandBlue),
+          title: const Text('Tin nhắn'),
+          subtitle: const Text('Trao đổi với chủ trọ và khách thuê'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => ChatListScreen(store: s)),
+          ),
+        ),
+      ),
       Card(
         child: Column(
           children: [
@@ -1105,10 +1170,15 @@ class ProfileScreen extends StatelessWidget {
       builder: (context, _) => ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 42,
-            backgroundColor: Color(0xFFF0F6FF),
-            child: Icon(Icons.person_outline, size: 46, color: brandBlue),
+            backgroundColor: const Color(0xFFF0F6FF),
+            backgroundImage: store.avatarUrl == null
+                ? null
+                : NetworkImage(store.avatarUrl!),
+            child: store.avatarUrl == null
+                ? const Icon(Icons.person_outline, size: 46, color: brandBlue)
+                : null,
           ),
           const SizedBox(height: 20),
           Text(
@@ -1122,6 +1192,7 @@ class ProfileScreen extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 30),
+          FirebaseSettings(store: store),
           ListTile(
             leading: const Icon(Icons.edit_outlined),
             title: const Text('Cập nhật thông tin'),

@@ -15,6 +15,11 @@ Future<void> main(List<String> args) async {
       if (statement.trim().isNotEmpty) await db.query(statement);
     }
     final email = config['ADMIN_EMAIL'];
+    for (final sql in (await File(
+      'database/firebase.sql',
+    ).readAsString()).split(';')) {
+      if (sql.trim().isNotEmpty) await db.query(sql);
+    }
     final password = config['ADMIN_PASSWORD'];
     require(
       email != null && password != null && password.length >= 8,

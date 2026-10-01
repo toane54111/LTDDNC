@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1073497666860",
+    "project_id": "ltddnc-ac280",
+    "storage_bucket": "ltddnc-ac280.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1073497666860:android:14bd4be96cb023e5f56889",
+        "android_client_info": {
+          "package_name": "com.example.ck"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1073497666860-su0hidi8p1dqe1892dscmpgt4mc5837h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ck",
+            "certificate_hash": "6a9d813c87792bedb71007ddfca0f458950e6570"
+          }
+        },
+        {
+          "client_id": "1073497666860-5qshvnqbstfgsuf9ic8632cpoiu9mrc1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBo-mGuxUqKOfbJGmkqoZQSO4IW9xVf9_M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1073497666860-5qshvnqbstfgsuf9ic8632cpoiu9mrc1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

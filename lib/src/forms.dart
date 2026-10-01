@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rental_domain/rental_domain.dart';
 
 import 'data.dart';
+import 'firebase_services.dart';
 
 import 'dart:convert';
 
@@ -214,8 +215,7 @@ class _DataFormState extends State<DataForm> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (c.text.startsWith('data:image/'))
-            const Text('Đã đính kèm ảnh từ thiết bị'),
+          if (c.text.isNotEmpty) const Text('Đã đính kèm ảnh từ thiết bị'),
           Wrap(
             spacing: 8,
             children: [
@@ -253,8 +253,9 @@ class _DataFormState extends State<DataForm> {
                         }
                         return;
                       }
-                      c.text =
-                          'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}';
+                      c.text = widget.store.firebaseConnected
+                          ? await FirebaseServices.upload(bytes, png: png)
+                          : 'data:image/${png ? 'png' : 'jpeg'};base64,${base64Encode(bytes)}';
                       if (mounted) setState(() => error = null);
                     } catch (_) {
                       if (mounted) {

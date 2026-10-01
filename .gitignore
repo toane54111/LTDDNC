@@ -52,3 +52,12 @@ reference/
 runtime/
 server/.dart_tool/
 server/coverage/
+secrets/
+**/*service-account*.json
+**/*adminsdk*.json
+firebase-debug.log
+.firebase/
+node_modules/
+# Local screenshots of account consent screens
+docs/firebase-cli-permission.png
+docs/firebase-terms-step.png

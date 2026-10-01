@@ -1,4 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import 'firebase_services.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -23,6 +29,125 @@ class RentalStore extends ChangeNotifier {
   String? token;
   Record? user;
   bool demo = false, onlineDemo = false;
+  bool firebaseConnected = false;
+  String? firebaseError, avatarUrl;
+  final notificationTap = ValueNotifier<String?>(null);
+  final foregroundNotification = ValueNotifier<String?>(null);
+  StreamSubscription<String>? deviceSubscription;
+  StreamSubscription<RemoteMessage>? messageSubscription, tapSubscription;
+  String? deviceToken;
+
+  @override
+  void dispose() {
+    deviceSubscription?.cancel();
+    messageSubscription?.cancel();
+    tapSubscription?.cancel();
+    notificationTap.dispose();
+    foregroundNotification.dispose();
+    client.close();
+    super.dispose();
+  }
+
+  Future<void> connectFirebase() async {
+    if (!FirebaseServices.ready || demo || token == null) return;
+    try {
+      final result = await request('POST', 'firebase/session');
+      await FirebaseAuth.instance.signInWithCustomToken(result['customToken']);
+      firebaseConnected = true;
+      firebaseError = null;
+      avatarUrl = (await request('GET', 'firebase/avatar'))['avatar_url'];
+      await messageSubscription?.cancel();
+      await tapSubscription?.cancel();
+      messageSubscription = FirebaseMessaging.onMessage.listen((message) {
+        foregroundNotification.value =
+            message.notification?.title ?? 'Bạn có thông báo mới';
+        unawaited(refresh().catchError((_) {}));
+      });
+      tapSubscription = FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        notificationTap.value = message.data['notificationId'] ?? 'latest';
+      });
+      if (FirebaseServices.mobile) {
+        final initial = await FirebaseMessaging.instance.getInitialMessage();
+        if (initial != null) {
+          notificationTap.value = initial.data['notificationId'] ?? 'latest';
+        }
+      }
+    } catch (_) {
+      firebaseConnected = false;
+      firebaseError =
+          'Chưa kết nối được Firebase. Kiểm tra cấu hình rồi thử lại.';
+    }
+    notifyListeners();
+  }
+
+  Future<void> enablePush() async {
+    writable();
+    if (!firebaseConnected) await connectFirebase();
+    if (!firebaseConnected) {
+      throw ApiException(firebaseError ?? 'Firebase chưa được cấu hình.');
+    }
+    if (!FirebaseServices.mobile) {
+      throw ApiException('Bản demo nhận thông báo đẩy trên Android/iOS.');
+    }
+    final settings = await FirebaseMessaging.instance.requestPermission();
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      throw ApiException('Hãy cho phép thông báo trong cài đặt điện thoại.');
+    }
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: false,
+          badge: true,
+          sound: true,
+        );
+    deviceToken = await FirebaseMessaging.instance.getToken();
+    if (deviceToken == null) {
+      throw ApiException(
+        'Thiết bị chưa nhận được mã thông báo. Hãy thử lại sau.',
+      );
+    }
+    if (deviceToken != null) {
+      await request('POST', 'firebase/devices', {'token': deviceToken});
+    }
+    await deviceSubscription?.cancel();
+    deviceSubscription = FirebaseMessaging.instance.onTokenRefresh.listen((
+      value,
+    ) async {
+      deviceToken = value;
+      try {
+        await request('POST', 'firebase/devices', {'token': value});
+      } catch (_) {}
+    });
+  }
+
+  Future<void> googleLogin() async {
+    try {
+      final idToken = await FirebaseServices.googleToken();
+      final result = await request('POST', 'google-login', {
+        'idToken': idToken,
+      });
+      token = result['token'];
+      user = Map<String, dynamic>.from(result['user']);
+      demo = false;
+      onlineDemo = result['onlineDemo'] == true;
+      records.clear();
+      await connectFirebase();
+      notifyListeners();
+    } catch (_) {
+      if (FirebaseServices.ready) await FirebaseAuth.instance.signOut();
+      rethrow;
+    }
+  }
+
+  Future<void> linkGoogle() async {
+    writable();
+    try {
+      final idToken = await FirebaseServices.googleToken();
+      await request('POST', 'firebase/google-link', {'idToken': idToken});
+    } finally {
+      await connectFirebase();
+    }
+  }
+
   final Map<String, List<Record>> records = {};
   bool get owner => user?['vai_tro'] == 'CHU_TRO';
   List<Record> rows(String table) => records[table] ?? [];
@@ -40,6 +165,13 @@ class RentalStore extends ChangeNotifier {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (response.statusCode >= 400) {
         if (response.statusCode == 401) {
+          firebaseConnected = false;
+          deviceSubscription?.cancel();
+          messageSubscription?.cancel();
+          tapSubscription?.cancel();
+          if (FirebaseServices.ready) {
+            unawaited(FirebaseAuth.instance.signOut());
+          }
           token = null;
           user = null;
           records.clear();
@@ -69,6 +201,7 @@ class RentalStore extends ChangeNotifier {
     onlineDemo = result['onlineDemo'] == true;
     demo = false;
     records.clear();
+    await connectFirebase();
     notifyListeners();
   }
 
@@ -122,6 +255,27 @@ class RentalStore extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await deviceSubscription?.cancel();
+    await messageSubscription?.cancel();
+    await tapSubscription?.cancel();
+    if (!demo && token != null && deviceToken != null) {
+      try {
+        await request('DELETE', 'firebase/devices', {'token': deviceToken});
+      } catch (_) {}
+    }
+    if (FirebaseServices.ready) {
+      try {
+        if (FirebaseServices.mobile) {
+          await FirebaseMessaging.instance.deleteToken();
+        }
+      } catch (_) {}
+      await FirebaseAuth.instance.signOut();
+    }
+    firebaseConnected = false;
+    avatarUrl = null;
+    deviceToken = null;
+    notificationTap.value = null;
+    foregroundNotification.value = null;
     if (!demo && token != null) {
       try {
         await request('POST', 'logout');
@@ -297,12 +451,6 @@ class RentalStore extends ChangeNotifier {
       ],
     });
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    client.close();
-    super.dispose();
   }
 }
 

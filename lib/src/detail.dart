@@ -11,6 +11,7 @@ import 'data.dart';
 import 'forms.dart';
 import 'theme.dart';
 import 'room_photo.dart';
+import 'firebase_settings.dart';
 
 void openDetail(
   BuildContext context,
@@ -110,6 +111,26 @@ class _DetailScreenState extends State<DetailScreen> {
       appBar: AppBar(
         title: Text('${m.label} #${row[m.id]}'),
         actions: [
+          if (s.owner && m.table == 'phong_tro')
+            IconButton(
+              tooltip: 'Đổi ảnh phòng',
+              icon: const Icon(Icons.add_a_photo_outlined),
+              onPressed: busy
+                  ? null
+                  : () async {
+                      setState(() => busy = true);
+                      await guarded(context, () async {
+                        final url = await pickCloudPhoto(s);
+                        if (url == null) return;
+                        await s.request('PUT', 'firebase/room-photo', {
+                          'roomId': row[m.id],
+                          'url': url,
+                        });
+                        await s.refresh();
+                      });
+                      if (mounted) setState(() => busy = false);
+                    },
+            ),
           if (s.owner && m.editable)
             IconButton(
               tooltip: 'Chỉnh sửa',
@@ -155,6 +176,7 @@ class _DetailScreenState extends State<DetailScreen> {
                               'so_lan_sai_mat_khau',
                               'trang_thai',
                               'hinh_anh',
+                              'photo_url',
                               'preview_photo',
                             ].contains(e.key),
                       ))
@@ -433,6 +455,29 @@ class _DetailScreenState extends State<DetailScreen> {
     }
     if (m.table == 'thong_bao') {
       widgets.add(button('Đánh dấu đã đọc', () => act('read')));
+      final match = RegExp(r'^hoa_don/(\d+)$')
+          .firstMatch('${row['link'] ?? ''}');
+      if (match != null) {
+        widgets.add(
+          button(
+            'Xem hóa đơn',
+            () => guarded(context, () async {
+              final invoice = await s.request(
+                'GET',
+                'hoa_don/${match.group(1)}',
+              );
+              if (mounted) {
+                openDetail(
+                  context,
+                  s,
+                  moduleOf('hoa_don'),
+                  Map<String, dynamic>.from(invoice),
+                );
+              }
+            }),
+          ),
+        );
+      }
     }
     if (['hoa_don', 'giao_dich', 'hop_dong'].contains(m.table)) {
       widgets.add(

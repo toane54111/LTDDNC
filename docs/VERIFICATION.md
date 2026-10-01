@@ -1,5 +1,16 @@
 # Kết quả kiểm tra — 30/09/2026
 
+## Tích hợp Firebase — 01/10/2026
+
+- Flutter analyze (lib, test, rental_domain) và Dart analyze trong server: không có lỗi/cảnh báo.
+- Flutter: 6 bài đạt. Backend: 16 bài đạt, gồm tích hợp MySQL thật và kiểm tra quyền chat/URL ảnh.
+- Firestore + Storage Emulator: 5 bài đạt; chặn đọc chat ngoài cuộc, giả mạo tin nhắn, upload sai chủ sở hữu/MIME/dung lượng.
+- npm audit trong firebase-tests: 0 lỗ hổng sau khi khóa các phụ thuộc vá lỗi; bộ emulator chạy lại đạt.
+- Migration Firebase đã chạy trên MySQL riêng ở cổng 3307.
+- Build web và APK debug cuối sau tích hợp Firebase: thành công. APK: `build/app/outputs/flutter-apk/app-debug.apk`.
+- Đã nối project thật `ltddnc-ac280`, triển khai rules và kiểm tra Firebase custom authentication, truy vấn/ghi Firestore, upload Storage thật, FCM validate-only. Chưa xác minh đăng nhập Google tương tác, push đến thiết bị hay báo cáo Crashlytics từ điện thoại.
+- Hướng dẫn kết nối và kịch bản demo: `docs/FIREBASE.md`.
+
 ## Cập nhật giao diện — 01/10/2026
 
 - `flutter analyze --no-pub lib test packages/rental_domain/lib`: không có lỗi/cảnh báo.
